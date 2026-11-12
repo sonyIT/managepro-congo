@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ManagePro Congo</title>
+<style>
+:root{--bg:#f5f7fa;--card:#fff;--tx:#1a2233;--mut:#6b7587;--pri:#1f4e8c;--bd:#dde3ec;--ok:#1e8e5a;--warn:#c77a00;--bad:#c93a3a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12161d;--card:#1c222c;--tx:#e8ecf2;--mut:#98a3b5;--pri:#6ea4e8;--bd:#2c3441;--ok:#4cc38a;--warn:#e8a23a;--bad:#ef7070}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--pri);color:#fff}
+header h1{font-size:18px;margin:0}
+header select{padding:6px;border-radius:6px}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--bd)}
+nav button{white-space:nowrap;border:1px solid var(--bd);background:var(--bg);color:var(--tx);padding:8px 12px;border-radius:8px;cursor:pointer}
+nav button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+main{max-width:980px;margin:0 auto;padding:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:10px}
+.kpi b{display:block;font-size:22px}.kpi span{color:var(--mut);font-size:13px}
+h2{font-size:17px;margin:4px 0 10px}
+form,.frm{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:end}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+input,select,textarea{padding:8px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font:inherit;width:100%}
+.btn{background:var(--pri);color:#fff;border:0;padding:9px 14px;border-radius:8px;cursor:pointer;font:inherit}
+.btn.s{background:transparent;color:var(--bad);padding:4px 8px;border:1px solid var(--bd)}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--bd)}
+.row:first-of-type{border-top:0}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;background:var(--bd)}
+.Urgent,.bad{color:var(--bad)}.ok{color:var(--ok)}.warn{color:var(--warn)}
+.alert{padding:10px;border-radius:8px;margin-bottom:10px;border:1px solid var(--warn);color:var(--warn)}
+.alert.bad{border-color:var(--bad);color:var(--bad)}
+.bar{height:10px;background:var(--bd);border-radius:5px;overflow:hidden;margin:3px 0}
+.bar i{display:block;height:100%;background:var(--pri)}.bar i.sp{background:var(--warn)}
+.sc{overflow-x:auto}
+#rep{display:none}
+@media print{body.printing>*:not(#rep){display:none}body.printing #rep{display:block;color:#000;background:#fff;padding:16px}}
+</style></head><body>
+<header><h1>ManagePro Congo</h1><label style="color:#fff;flex-direction:row;align-items:center;gap:6px;font-size:13px;width:auto">Rôle <select id="role" onchange="S.role=this.value;S.tab='dash';go()"></select></label></header>
+<nav id="nav"></nav><main id="app"></main><div id="rep"></div>
+<script>
+const today=()=>new Date().toISOString().slice(0,10);
+const ROLES=['Admin','Chef de projet','Employé','Comptable'];
+const ACC={Admin:['dash','proj','task','budget','stock','team'],'Chef de projet':['dash','proj','task','budget','stock'],'Employé':['dash','task','stock'],Comptable:['dash','budget']};
+const TABS={dash:'Tableau de bord',proj:'Projets',task:'Tâches',budget:'Budget',stock:'Stock',team:'Équipe'};
+let S=null;try{S=JSON.parse(localStorage.getItem('mp'))}catch(x){}
+S=S||{role:'Admin',tab:'dash',pid:'p1',
+projects:[{id:'p1',name:'Construction école',desc:'Bâtiment de 3 salles',start:'2026-11-01',end:'2027-02-28',lead:'Administrateur',team:'Équipe chantier',status:'En cours',pct:20,budget:5000000}],
+tasks:[{id:'t1',title:'Commander le ciment',pid:'p1',who:'Administrateur',due:'2026-11-05',prio:'Urgent',status:'À faire',com:[]}],
+expenses:[{id:'e1',pid:'p1',date:'2026-11-03',motif:'Achat de ciment',amt:350000,who:'Administrateur'}],
+incomes:[{id:'i1',pid:'p1',date:'2026-11-01',src:'Financement ONG',amt:2000000}],
+products:[{id:'s1',name:'Ciment (sac)',qty:5,price:8000,cat:'Construction',min:10}],
+moves:[],team:[{id:'m1',name:'Administrateur',role:'Admin',tel:'+242 06 000 0000'}]};
+const save=()=>{try{localStorage.setItem('mp',JSON.stringify(S))}catch(x){}};
+const uid=()=>Math.random().toString(36).slice(2,8);
+const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>Number(n||0).toLocaleString('fr-FR')+' FCFA';
+const v=id=>document.getElementById(id).value;
+const opt=(a,sel)=>a.map(x=>{x=Array.isArray(x)?x:[x,x];return `<option value="${e(x[0])}"${x[0]==sel?' selected':''}>${e(x[1])}</option>`}).join('');
+const I=(id,l,t='text',val='')=>`<label>${l}<input id="${id}" type="${t}" value="${e(val)}"></label>`;
+const Sel=(id,l,a,sel)=>`<label>${l}<select id="${id}">${opt(a,sel)}</select></label>`;
+const pOpts=()=>S.projects.map(p=>[p.id,p.name]);
+const pname=id=>(S.projects.find(p=>p.id==id)||{}).name||'—';
+const st=p=>p.status!=='Terminé'&&p.end&&p.end<today()?'En retard':p.status;
+const spent=pid=>S.expenses.filter(x=>!pid||x.pid==pid).reduce((a,x)=>a+ +x.amt,0);
+const income=pid=>S.incomes.filter(x=>!pid||x.pid==pid).reduce((a,x)=>a+ +x.amt,0);
+const late=()=>S.tasks.filter(t=>t.status!=='Terminé'&&t.due&&t.due<today());
+const low=()=>S.products.filter(p=>+p.qty<=+p.min);
+const del=(c,id)=>{if(confirm('Supprimer cet élément ?')){S[c]=S[c].filter(x=>x.id!=id);go()}};
+const go=()=>{save();render()};
+
+function render(){
+ document.getElementById('role').innerHTML=opt(ROLES,S.role);
+ const allowed=ACC[S.role];if(!allowed.includes(S.tab))S.tab=allowed[0];
+ document.getElementById('nav').innerHTML=allowed.map(k=>`<button class="${k==S.tab?'on':''}" onclick="S.tab='${k}';go()">${TABS[k]}</button>`).join('');
+ document.getElementById('app').innerHTML=VIEWS[S.tab]();
+}
+const VIEWS={
+dash(){
+ const run=S.projects.filter(p=>st(p)==='En cours').length,L=late(),Lo=low();
+ const tot=S.projects.reduce((a,p)=>a+ +p.budget,0),sp=spent();
+ const max=Math.max(1,...S.projects.map(p=>Math.max(+p.budget,spent(p.id))));
+ const money=S.role!=='Employé';
+ return `<div class="grid">
+ <div class="card kpi"><b>${run}</b><span>Projets en cours</span></div>
+ ${money?`<div class="card kpi"><b>${fmt(sp)}</b><span>Argent dépensé</span></div><div class="card kpi"><b>${fmt(tot-sp)}</b><span>Argent restant</span></div>`:''}
+ <div class="card kpi"><b class="${L.length?'bad':''}">${L.length}</b><span>Tâches en retard</span></div>
+ <div class="card kpi"><b class="${Lo.length?'warn':''}">${Lo.length}</b><span>Alertes stock bas</span></div></div>
+ ${Lo.map(p=>`<div class="alert">Stock bas : il ne reste que ${e(p.qty)} × ${e(p.name)}</div>`).join('')}
+ ${L.map(t=>`<div class="alert bad">Rappel : tâche en retard « ${e(t.title)} » (${e(t.who)})</div>`).join('')}
+ ${money?`<div class="card"><h2>Budget prévu vs dépensé</h2>${S.projects.map(p=>`<div><b>${e(p.name)}</b><div class="bar"><i style="width:${p.budget/max*100}%"></i></div><div class="bar"><i class="sp" style="width:${spent(p.id)/max*100}%"></i></div><small>Prévu ${fmt(p.budget)} · Dépensé ${fmt(spent(p.id))}</small></div>`).join('')||'Aucun projet.'}</div>`:''}
+ <button class="btn s" onclick="if(confirm('Effacer toutes les données ?')){localStorage.removeItem('mp');location.reload()}">Réinitialiser les données</button>`},
+proj(){
+ return `<div class="card"><h2>Nouveau projet</h2><div class="frm">${I('pn','Nom')}${I('pd','Description')}${I('ps','Début','date')}${I('pe','Fin','date')}${I('pl','Chef de projet')}${I('pt','Équipe assignée')}${I('pb','Budget total','number')}<button class="btn" onclick="addP()">Créer</button></div></div>`+
+ S.projects.map(p=>`<div class="card"><div class="row" style="border:0"><b>${e(p.name)}</b><span class="tag">${st(p)}</span></div><div>${e(p.desc)}</div><small>${e(p.start)} → ${e(p.end)} · Chef : ${e(p.lead)} · Équipe : ${e(p.team)} · Budget : ${fmt(p.budget)}</small>
+ <div class="bar"><i style="width:${p.pct}%"></i></div><div class="frm">${Sel('st'+p.id,'Statut',['En attente','En cours','Terminé'],p.status)}<label>Avancement : ${p.pct} %<input type="range" min="0" max="100" value="${p.pct}" onchange="setP('${p.id}','pct',this.value)"></label><button class="btn" onclick="setP('${p.id}','status',v('st${p.id}'))">Mettre à jour le statut</button><button class="btn s" onclick="del('projects','${p.id}')">Supprimer</button></div></div>`).join('')},
+task(){
+ const ppl=S.team.map(m=>m.name);
+ return `<div class="card"><h2>Nouvelle tâche</h2><div class="frm">${I('tt','Titre')}${Sel('tp','Projet',pOpts())}${I('tw','Assignée à')}${I('td','Date limite','date')}${Sel('tr','Priorité',['Urgent','Normal','Faible'],'Normal')}<button class="btn" onclick="addT()">Ajouter</button></div></div>`+
+ S.tasks.map(t=>{const l=t.status!=='Terminé'&&t.due&&t.due<today();return `<div class="card"><div class="row" style="border:0"><b>${e(t.title)}</b><span><span class="tag ${t.prio}">${t.prio}</span> ${l?'<span class="tag bad">En retard</span>':''}</span></div><small>${e(pname(t.pid))} · ${e(t.who)} · échéance ${e(t.due)}</small>
+ ${t.com.map(c=>`<div><small>💬 ${e(c)}</small></div>`).join('')}
+ <div class="frm"><select onchange="setT('${t.id}',this.value)">${opt(['À faire','En cours','Terminé'],t.status)}</select><button class="btn" onclick="comT('${t.id}')">Commenter</button><button class="btn s" onclick="del('tasks','${t.id}')">Supprimer</button></div></div>`}).join('')||'<div class="card">Aucune tâche.</div>'},
+budget(){
+ if(!S.projects.find(p=>p.id==S.pid))S.pid=(S.projects[0]||{}).id;
+ const p=S.projects.find(x=>x.id==S.pid);
+ if(!p)return '<div class="card">Créez d’abord un projet.</div>';
+ const sp=spent(p.id),rest=p.budget-sp,pc=p.budget?sp/p.budget*100:0;
+ return `<div class="card">${Sel('bp','Projet',pOpts(),S.pid).replace('<select','<select onchange="S.pid=this.value;go()"')}</div>
+ <div class="grid"><div class="card kpi"><b>${fmt(p.budget)}</b><span>Budget total</span></div><div class="card kpi"><b>${fmt(sp)}</b><span>Dépenses</span></div><div class="card kpi"><b class="${rest<0?'bad':'ok'}">${fmt(rest)}</b><span>Budget restant</span></div><div class="card kpi"><b>${fmt(income(p.id))}</b><span>Financements reçus</span></div></div>
+ ${pc>=80?`<div class="alert bad">Attention : ${Math.round(pc)} % du budget déjà dépensé</div>`:''}
+ <div class="card"><h2>Ajouter une dépense</h2><div class="frm">${I('ed','Date','date',today())}${I('em','Motif')}${I('ea','Montant','number')}${I('ew','Dépensé par')}<button class="btn" onclick="addE()">Ajouter</button></div></div>
+ <div class="card"><h2>Ajouter un revenu / financement</h2><div class="frm">${I('id','Date','date',today())}${I('is','Source')}${I('ia','Montant','number')}<button class="btn" onclick="addI()">Ajouter</button></div></div>
+ <div class="card sc"><h2>Dépenses</h2>${S.expenses.filter(x=>x.pid==p.id).map(x=>`<div class="row"><span>${e(x.date)} · ${e(x.motif)} · ${e(x.who)}</span><span>${fmt(x.amt)} <button class="btn s" onclick="del('expenses','${x.id}')">✕</button></span></div>`).join('')||'Aucune.'}</div>
+ <div class="card sc"><h2>Revenus</h2>${S.incomes.filter(x=>x.pid==p.id).map(x=>`<div class="row"><span>${e(x.date)} · ${e(x.src)}</span><span>${fmt(x.amt)} <button class="btn s" onclick="del('incomes','${x.id}')">✕</button></span></div>`).join('')||'Aucun.'}</div>
+ <button class="btn" onclick="report()">Rapport PDF (imprimer / enregistrer en PDF)</button>`},
+stock(){
+ const w=S.role!=='Employé'||true;
+ return `<div class="card"><h2>Ajouter un produit</h2><div class="frm">${I('sn','Nom')}${I('sq','Quantité','number')}${I('sp','Prix','number')}${I('sc','Catégorie')}${I('sm','Seuil d’alerte','number',5)}<button class="btn" onclick="addS()">Ajouter</button></div></div>
+ <div class="card"><h2>Entrée / sortie de stock</h2><div class="frm">${Sel('mpd','Produit',S.products.map(p=>[p.id,p.name]))}${Sel('mt','Type',['Entrée','Sortie'])}${I('mq','Quantité','number')}${Sel('mj','Projet lié',[['','—'],...pOpts()])}${I('mw','Par qui')}<button class="btn" onclick="addM()">Valider</button></div></div>
+ <div class="card"><h2>Produits</h2>${S.products.map(p=>`<div class="row"><span>${e(p.name)} · ${e(p.cat)} · ${fmt(p.price)}</span><span class="${+p.qty<=+p.min?'bad':''}">${e(p.qty)} en stock ${+p.qty<=+p.min?'⚠':''} <button class="btn s" onclick="del('products','${p.id}')">✕</button></span></div>`).join('')||'Aucun produit.'}</div>
+ <div class="card"><h2>Historique</h2>${S.moves.slice().reverse().map(m=>`<div class="row"><span>${e(m.date)} · ${e(m.who)} · ${e(m.type)} ${e(m.qty)} × ${e(m.name)}</span><span>${m.pid?e(pname(m.pid)):''}</span></div>`).join('')||'Aucun mouvement.'}</div>`},
+team(){
+ return `<div class="card"><h2>Ajouter un membre</h2><div class="frm">${I('mn','Nom')}${Sel('mr','Rôle',ROLES,'Employé')}${I('mtl','Téléphone','tel')}<button class="btn" onclick="addM2()">Ajouter</button></div></div>
+ <div class="card">${S.team.map(m=>`<div class="row"><span><b>${e(m.name)}</b> · ${e(m.tel)}</span><span><span class="tag">${e(m.role)}</span> <button class="btn s" onclick="del('team','${m.id}')">✕</button></span></div>`).join('')}</div>
+ <div class="card"><small>Visibilité par rôle — Admin : tout · Chef de projet : projets, tâches, budget, stock · Employé : tâches et stock · Comptable : budget. Changez de rôle en haut pour tester.</small></div>`}
+};
+function addP(){if(!v('pn'))return;S.projects.push({id:uid(),name:v('pn'),desc:v('pd'),start:v('ps'),end:v('pe'),lead:v('pl'),team:v('pt'),status:'En attente',pct:0,budget:+v('pb')||0});go()}
+function setP(id,k,val){const p=S.projects.find(x=>x.id==id);p[k]=k=='pct'?+val:val;go()}
+function addT(){if(!v('tt')||!S.projects.length)return;S.tasks.push({id:uid(),title:v('tt'),pid:v('tp'),who:v('tw'),due:v('td'),prio:v('tr'),status:'À faire',com:[]});go()}
+function setT(id,val){S.tasks.find(x=>x.id==id).status=val;go()}
+function comT(id){const c=prompt('Votre commentaire :');if(c){S.tasks.find(x=>x.id==id).com.push(c);go()}}
+function addE(){if(!v('ea'))return;S.expenses.push({id:uid(),pid:S.pid,date:v('ed'),motif:v('em'),amt:+v('ea'),who:v('ew')});go()}
+function addI(){if(!v('ia'))return;S.incomes.push({id:uid(),pid:S.pid,date:v('id'),src:v('is'),amt:+v('ia')});go()}
+function addS(){if(!v('sn'))return;S.products.push({id:uid(),name:v('sn'),qty:+v('sq')||0,price:+v('sp')||0,cat:v('sc'),min:+v('sm')||0});go()}
+function addM(){const p=S.products.find(x=>x.id==v('mpd'));const q=+v('mq');if(!p||!q)return;
+ if(v('mt')=='Sortie'){if(q>p.qty){alert('Stock insuffisant.');return}p.qty-=q}else p.qty+=q;
+ S.moves.push({date:today(),who:v('mw'),type:v('mt'),qty:q,name:p.name,pid:v('mj')});go()}
+function addM2(){if(!v('mn'))return;S.team.push({id:uid(),name:v('mn'),role:v('mr'),tel:v('mtl')});go()}
+function report(){const p=S.projects.find(x=>x.id==S.pid);
+ document.getElementById('rep').innerHTML=`<h1>Rapport budgétaire — ${e(p.name)}</h1><p>Date : ${today()}</p><p>Budget total : ${fmt(p.budget)}<br>Dépenses : ${fmt(spent(p.id))}<br>Financements reçus : ${fmt(income(p.id))}<br>Budget restant : ${fmt(p.budget-spent(p.id))}</p><h2>Dépenses</h2><table border="1" cellpadding="4" style="border-collapse:collapse;width:100%">${S.expenses.filter(x=>x.pid==p.id).map(x=>`<tr><td>${e(x.date)}</td><td>${e(x.motif)}</td><td>${e(x.who)}</td><td>${fmt(x.amt)}</td></tr>`).join('')}</table>`;
+ document.body.classList.add('printing');window.print();document.body.classList.remove('printing')}
+render();
+</script></body></html>
